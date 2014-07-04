@@ -1,0 +1,93 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0" DefaultTargets="RedeployAll_360">
+    <Import Project="$(MSBuildExtensionsPath)\MSBuildCommunityTasks\MSBuild.Community.Tasks.Targets"/>
+    <Import Project="$(MSBuildExtensionsPath)\ExtensionPack\4.0\MSBuild.ExtensionPack.tasks"/>
+
+    <Target Name="CopyConfigs">
+        <Exec Command="xcopy $(DeploymentConfigFolder) $(ConfigFolder) /Y" />
+    </Target>
+
+    <!--
+	========================================================================================================
+													Backup												
+							This target backups website before deployment
+	========================================================================================================
+	-->
+    <Target Name="Backup">
+        <!-- create dir	BackupDir -->
+        <Exec Condition="!Exists('$(BackupDir)')" Command="$(MSDeployPath) -verb:sync -source:runCommand=&quot;mkdir $(BackupDir)&quot; -dest:auto,computername=$(DeploymentServer),username=$(Username),password=$(Password)" />
+        <!--					
+		if (IISWebSiteName exists) 
+			backup DeploymentServer to BackupDir -->
+        <Exec Command="$(MSDeployPath) -verb:sync -source:appHostConfig='$(IISWebSiteName)',computerName=$(DeploymentServer),username=$(Username),password=$(Password) -dest:package='$(BackupDir)\$(IISWebSiteName)-@($([System.DateTime]::Now.ToString(`yyyy.MMdd.hh.mm`))).zip',computerName=$(DeploymentServer)" />
+    </Target>
+
+    <!--
+	========================================================================================================
+													Build												
+							This target builds projects for deploy
+	========================================================================================================
+	-->
+
+    <Target Name="Build" >
+        <Message Text="Start Building....."/>
+        <MSBuild Projects="$(Sources)\$(SolutionName)" Targets="Rebuild" Properties="Configuration=$(Configuration);Platform=$(Platform)"/>
+        <Message Text="Finish Building....."/>
+    </Target>
+
+    <!--
+	========================================================================================================
+												Build	and run db update tool																		
+	========================================================================================================
+	-->
+
+    <Target Name="RunDbUpdateTool" DependsOnTargets="CopyConfigs">
+        <Message Text="Start Building....."/>
+        <MSBuild Projects="$(DbToolSolutionName)" Targets="Rebuild" Properties="Configuration=$(Configuration);Platform=$(Platform)"/>
+        <Message Text="Finish Building....."/>
+        <Message Text="Replace specific for the env scripts before run the tool"/>
+        <Exec Command="xcopy $(DbToolOverrideFromScripts) $(DbToolUpdateScripts) /Y"  />
+        <Exec Command="$(DbToolExe) /auto /path $(DbToolUpdateScripts)" />
+    </Target>
+  
+    <PropertyGroup>
+        <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
+        <Platform Condition=" '$(Platform)' == '' ">Any CPU</Platform>
+    </PropertyGroup>
+
+    <Target Name="Deploy" DependsOnTargets="Backup;CopyConfigs;" >
+        <MSBuild Projects="$(ProjectName)" Targets="Package" Properties="Configuration=$(Configuration);Platform=AnyCPU;IncludeSetAclProviderOnDestination=False;PackageLocation=$(Package)"/>
+        <Exec Command="$(MSDeployPath) -verb:sync -source:package=$(Package) -dest:auto,computerName=$(DeploymentServer),username=$(Username),password=$(Password) -setParam:&quot;IIS Web Application Name&quot;=&quot;$(IISWebSiteName)&quot; "/>
+    </Target>
+
+    <!--
+		========================================================================================================
+														ConfigureIIS
+								This target configures remote IIS server for deploy services 
+		========================================================================================================
+	-->
+    <Target Name="CreateIISSite">
+        <Exec Command="$(MSDeployPath) -verb:sync -source:runCommand=&quot;mkdir $(WebSiteDrive):\$(WebSiteDir) &quot; -dest:auto,computername=$(DeploymentServer),username=$(Username),password=$(Password)" ContinueOnError="true" />
+        <Exec Command="$(MSDeployPath) -verb:sync -source:runCommand=&quot;c:\windows\system32\inetsrv\appcmd.exe delete apppool $(IISAppPoolName)&quot; -dest:auto,computername=$(DeploymentServer),username=$(Username),password=$(Password)" ContinueOnError="true" />
+        <Exec Command="$(MSDeployPath) -verb:sync -source:runCommand=&quot;c:\windows\system32\inetsrv\appcmd.exe add apppool /name:$(IISAppPoolName)&quot; -dest:auto,computername=$(DeploymentServer),username=$(Username),password=$(Password)" />
+
+        <Exec Command="$(MSDeployPath) -verb:sync -source:runCommand=&quot;c:\windows\system32\inetsrv\appcmd.exe delete site $(IISWebSiteName)&quot; -dest:auto,computername=$(DeploymentServer),username=$(Username),password=$(Password)" ContinueOnError="true" />
+        <Exec Command="$(MSDeployPath) -verb:sync -source:runCommand=&quot;c:\windows\system32\inetsrv\appcmd.exe add site /name:$(IISWebSiteName) /physicalPath:$(WebSiteDrive):\$(WebSiteDir)\ /bindings:http/*:$(SitePort): &quot; -dest:auto,computername=$(DeploymentServer),username=$(Username),password=$(Password)" />
+
+        <Exec Command="$(MSDeployPath) -verb:sync -source:runCommand=&quot;c:\windows\system32\inetsrv\appcmd.exe set site /site.name:$(IISWebSiteName) /applicationDefaults.applicationPool:$(IISAppPoolName)&quot; -dest:auto,computername=$(DeploymentServer),username=$(Username),password=$(Password)" />
+
+        <Exec Command="$(MSDeployPath) -verb:sync -source:runCommand=&quot;c:\windows\system32\inetsrv\appcmd.exe set apppool $(IISAppPoolName) -processModel.loadUserProfile:&quot;true&quot; &quot; -dest:auto,computername=$(DeploymentServer),username=$(Username),password=$(Password)" />
+        <Exec Command="$(MSDeployPath) -verb:sync -source:runCommand=&quot;c:\windows\system32\inetsrv\appcmd.exe set apppool $(IISAppPoolName) -failure.rapidFailProtectionMaxCrashes:5000 &quot; -dest:auto,computername=$(DeploymentServer),username=$(Username),password=$(Password)" />
+    </Target>
+
+    <!--     =============================================================================================================              -->
+    <!--       Target for Redeploy services and databases.																				-->
+    <!--     =============================================================================================================              -->
+    <Target Name="RedeployAll">
+        <CallTarget Targets="AssemblyVersion;DeployIpad;Build;UpdateWebConfig;UpdateServiceReference;EmailTemplatesUpdate;Deploy;CreateAppPool;ChangeAppPool;DeployDB;UpdateDBLogging;"/>
+    </Target>
+    <Target Name="RedeployAll_360">
+        <CallTarget Targets="Build;Deploy;RunDbUpdateTool"/>
+    </Target>
+
+</Project>
