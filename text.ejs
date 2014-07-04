@@ -1,0 +1,16 @@
+Name: [GE Sync Service 360 Program API] Service Failure
+
+Start DateTime (in UTC): <%= startDateTime %>
+End DateTime (in UTC): <%= endDateTime %>
+Number of retry attempts: <%= retryAttempts %>
+
+<% if (errors.length > 0) {%>
+	 <% for(var i=0; i < errors.length; i++) { %>  
+	HTTP Code: <%= errors[i]["httpCode"] %>
+	HTTP Message: <%= errors[i]["httpMessage"] %>
+	API Call: <%= errors[i]["apiURI"] %>
+	Data: <%= errors[i]["data"] %>
+	Request Body: <%= errors[i]["requestBody"] %>
+	 <% } %>
+
+<% } %>
