@@ -1,0 +1,282 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">  
+
+	  <!--  ============================================================================================  
+			Clean target clens binaries using Visual Studio Clean. Olso it delete TestResult directory
+	  ============================================================================================  -->
+	<Target Name="CleanVS" DependsOnTargets="">
+		<Message Text="Cleaning binaries....."/>
+		<Exec WorkingDirectory='$(VS100COMNTOOLS)..\IDE\' Command='devenv.com %(Solutions.Identity)  /Clean $(Configuration)'> </Exec>
+		
+		<ItemGroup>
+			<_FilesToDelete Include="$(SourceFolder)\**\bin\**\*; $(SourceFolder)\**\obj\**\*" Exclude="$(SourceFolder)\**\.svn\**\*"/>
+		</ItemGroup>
+
+		<Delete Files="@(_FilesToDelete)"/>
+	</Target>
+	
+	  <!--  ============================================================================================  
+			Build target builds all projects or solutins specifed in ProjectToBuild item
+	  ============================================================================================  -->
+	<Target Name="PrepareTestResultsFolder">
+		<RemoveDir Directories="$(ResultsFolder)" >
+			<Output TaskParameter="RemovedDirectories" PropertyName="RemovedDirs" />
+		</RemoveDir>
+		<MakeDir Directories="$(ResultsFolder)" Condition="!Exists('$(ResultsFolder')" />
+
+	</Target>
+	
+	<Target Name="Build" DependsOnTargets="AssemblyVersion">
+		<Message Text="Start Building....."/>
+		<Message Text="$(Solution)"/>
+		<Message Text="$(Configuration)"/>
+		<Message Text="$(Platform)"/>
+		<Message Text="$(ReleaseNumber)"/>
+		<MSBuild Projects="$(Solution)" Targets="Rebuild" Properties="Configuration=$(Configuration);Platform=$(Platform)"/>
+		<Message Text="Finish Building....."/>
+
+	</Target>
+
+  	<!--     =============================================================================================================              -->
+																<!--                 MsTest                    -->
+	<!--     =============================================================================================================              -->
+			<!--                 This ItemGroup define path to MsTest                 -->
+	<ItemGroup>
+		<MSTest Include='"$(VS100COMNTOOLS)..\IDE\MsTest.exe"'/>
+	</ItemGroup>
+	
+
+	<Target Name="RunTests" DependsOnTargets="PrepareTestResultsFolder">
+		<Message Text="Tests are runing....." />
+		<!-- -->
+		<Exec Command="@(MSTest) /testcontainer:$(TestsLib) /resultsfile:$(ResultsFile) /testsettings:$(TestSettingsFile)" ContinueOnError="false"/> 
+		<Message Text="Tests completed....." />
+	</Target>
+	
+	<!--     =============================================================================================================              -->
+	<!--      Coverage target convert MsTest coverage report to xml  -->
+	<!--     =============================================================================================================              -->
+  	<ItemGroup>
+		<Msxsl Include='"$(MSBuildExtensionsPath)\msxsl.exe"'/>
+		<TestCoverageToEmma Include='"$(MSBuildExtensionsPath)\MSTestCoverageToEmma.xsl"'/>
+	</ItemGroup>
+	<UsingTask TaskName="ConvertVSCoverageToXml" AssemblyFile="$(MSBuildExtensionsPath)\CI.MSBuild.Tasks.dll" />
+	<Target Name="Coverage" >
+		<ConvertVSCoverageToXml CoverageFiles="$(MSBuildThisFileDirectory)..\..\TestResults\TestResults\In\$(ComputerName)\data.coverage"
+                                SymbolsDirectory="$(MSBuildThisFileDirectory)..\..\TestResults\TestResults\Out\"
+                                OutputDirectory="$(MSBuildThisFileDirectory)..\..\TestResults\" />
+		<Exec Command="@(Msxsl) $(MSBuildThisFileDirectory)..\..\TestResults\data.xml @(TestCoverageToEmma) -o $(MSBuildThisFileDirectory)..\..\TestResults\coverage.xml" />
+	</Target>
+	
+	
+	<!-- 	=============================================================================================================              -->
+	<!--	VerifyStyle target runs StyleCop on StyleCopFiles using SourceAnalysisOverrideSettingsFile config file, and write results to SourceAnalysisOutputFile    -->
+	<!--	=============================================================================================================              -->
+	<PropertyGroup>
+	    <SourceAnalysisSettingsFile>$(MSBuildThisFileDirectory)..\MyLibrary\MyLibrary\Settings.StyleCop</SourceAnalysisSettingsFile>
+	    <SourceAnalysisOutputFile>$(MSBuildThisFileDirectory)..\..\TestResults\StyleCopViolations.xml</SourceAnalysisOutputFile>
+		<SourceAnalysisForceFullAnalysis>true</SourceAnalysisForceFullAnalysis>
+		<SourceAnalysisCacheResults>false</SourceAnalysisCacheResults>
+		<SourceAnalysisTreatErrorsAsWarnings>true</SourceAnalysisTreatErrorsAsWarnings>
+		<SourceAnalysisEnabled>true</SourceAnalysisEnabled>
+		<SourceAnalysisOverrideSettingsFile>$(MSBuildThisFileDirectory)..\MyLibrary\MyLibrary\Settings.StyleCop</SourceAnalysisOverrideSettingsFile>
+	</PropertyGroup>
+	
+		<ItemGroup>
+		<StyleCopSettingFile Include="$(SourceAnalysisOverrideSettingsFile)"/>
+	</ItemGroup>
+	<Target Name="VerifyStyle">
+		<Message Text="StyleCop is running now using %(StyleCopSettingFile.FullPath) setting file"/>
+		<StyleCopTask
+			ProjectFullPath="$(MSBuildProjectFile)"
+			SourceFiles="@(StyleCopFiles)"
+			ForceFullAnalysis="$(SourceAnalysisForceFullAnalysis)"
+			DefineConstants="$(DefineConstants)"
+			TreatErrorsAsWarnings="$(SourceAnalysisTreatErrorsAsWarnings)"
+			CacheResults="$(SourceAnalysisCacheResults)"
+			OverrideSettingsFile="$(SourceAnalysisOverrideSettingsFile)"
+			OutputFile="$(SourceAnalysisOutputFile)"/>
+	</Target>	
+	
+	<!--  FxCop Properties  -->
+	<PropertyGroup>
+		<Ruleset>"$(MSBuildThisFileDirectory)..\MyLibrary\CodeAnalysis.RuleSet"</Ruleset>
+		<FxFiles>/file:%22@(FxCopAnalysisFiles,'%22 /file:%22')%22</FxFiles>
+		<Dictionary>"$(MSBuildThisFileDirectory)..\MyLibrary\CustomDictionary.xml"</Dictionary>
+	</PropertyGroup>
+	<!--     =============================================================================================================              -->
+	<!--       FxCop target runs FxCop analize on FxCopAnalysisFiles using Ruleset item     -->
+	<!--     =============================================================================================================              -->	
+	<Target Name="FxCop">	
+		<Exec Command='"$(VS100COMNTOOLS)\..\..\Team Tools\Static Analysis Tools\FxCop\FxCopCmd.exe" /dictionary:$(Dictionary) /ruleset:=$(Ruleset) /console /searchgac /ignoregeneratedcode $(FxFiles) /out:$(MSBuildThisFileDirectory)..\..\TestResults\FxCop.xml '
+				ContinueOnError="true"
+		/>
+	</Target>
+	
+<!--     =============================================================================================================              -->
+<!--       Version target generates application version.																			-->
+<!--     =============================================================================================================              -->	
+	<PropertyGroup>
+		<Major>1</Major>
+		<Minor>0</Minor>
+		<Build>15</Build>
+		<Revision>0</Revision>
+	</PropertyGroup>
+	
+    <Target Name="Version">
+		<Version VersionFile="E:\Sources\Build\build_number_desktop.txt" RevisionType="Increment" BuildType="None">
+		  <Output TaskParameter="Major" PropertyName="Major" />
+		  <Output TaskParameter="Minor" PropertyName="Minor" />
+		  <Output TaskParameter="Build" PropertyName="Build" />		  
+		  <Output TaskParameter="Revision" PropertyName="Revision" />
+		</Version>
+
+		<Message Text="Version: $(Major).$(Minor).$(Build).$(Revision)"/>
+	</Target>	
+
+	<Target Name="AddVersion">
+		<RemoveDir Directories="$(MSBuildThisFileDirectory)Version" Condition=" Exists('$(MSBuildThisFileDirectory)Version') ">
+			<Output TaskParameter="RemovedDirectories" PropertyName="RemovedDirs" />
+		</RemoveDir>
+
+		<Exec Command="hg clone http://vm90298.projects.local/hg/Version" />
+		<MSBuild.ExtensionPack.Xml.XmlFile TaskAction="ReadAttribute" File="$(MSBuildThisFileDirectory)Version\plugins_vesions.xml" XPath="/version/services/@value">
+            <Output PropertyName="DesktopVersion" TaskParameter="Value"/>
+        </MSBuild.ExtensionPack.Xml.XmlFile>
+        <Message Text="DesktopVersion = $(DesktopVersion)"/>
+		<Exec Command="echo $(DesktopVersion) > $(MSBuildThisFileDirectory)build.txt" />
+		
+		<Version VersionFile="$(MSBuildThisFileDirectory)build.txt" RevisionType="Increment" BuildType="None">
+		  <Output TaskParameter="Major" PropertyName="Major" />
+		  <Output TaskParameter="Minor" PropertyName="Minor" />
+		  <Output TaskParameter="Build" PropertyName="Build" />		  
+		  <Output TaskParameter="Revision" PropertyName="Revision" />
+		</Version>
+
+		<ReadLinesFromFile File="$(MSBuildThisFileDirectory)build.txt">
+			<Output TaskParameter="Lines"
+				ItemName="ReleaseNumber" />
+		</ReadLinesFromFile>
+		<Message Text="Version: @(ReleaseNumber)"/>
+		
+		<CreateProperty Value="@(ReleaseNumber)">
+			<Output TaskParameter="Value" PropertyName="Version"/>
+		</CreateProperty>
+				
+		<ItemGroup>
+			<PluginsVersion Include="$(MSBuildThisFileDirectory)Version\plugins_vesions.xml">
+				<XPath>/version/services/@value</XPath>
+				<Value>$(Version)</Value>
+			</PluginsVersion>			
+		</ItemGroup>
+		
+		<XmlUpdate Prefix="%(PluginsVersion.Prefix)"
+                Namespace="%(PluginsVersion.Namespace)"
+                XPath="%(PluginsVersion.XPath)"
+                XmlFileName="%(PluginsVersion.Identity)"
+                Value="%(PluginsVersion.Value)"/>
+				
+		<Exec Command="hg commit $(MSBuildThisFileDirectory)Version\plugins_vesions.xml -mIncrement -uMaster" WorkingDirectory="$(MSBuildThisFileDirectory)Version\"/>
+		<Exec Command="hg push" WorkingDirectory="$(MSBuildThisFileDirectory)Version\"/>
+	</Target>	
+	
+	<Target Name="GetVersion">
+		<RemoveDir Directories="$(MSBuildThisFileDirectory)Version" Condition=" Exists('$(MSBuildThisFileDirectory)Version') ">
+			<Output TaskParameter="RemovedDirectories" PropertyName="RemovedDirs" />
+		</RemoveDir>
+
+		<Exec Command="hg clone http://vm90298.projects.local/hg/Version" />
+		<MSBuild.ExtensionPack.Xml.XmlFile TaskAction="ReadAttribute" File="$(MSBuildThisFileDirectory)Version\plugins_vesions.xml" XPath="/version/desktop/@value">
+            <Output PropertyName="DesktopVersion" TaskParameter="Value"/>
+        </MSBuild.ExtensionPack.Xml.XmlFile>
+        <Message Text="DesktopVersion = $(DesktopVersion)"/>
+		<Exec Command="echo $(DesktopVersion) > $(MSBuildThisFileDirectory)build.txt" />
+		
+		<ReadLinesFromFile File="$(MSBuildThisFileDirectory)build.txt">
+			<Output TaskParameter="Lines"
+				ItemName="ReleaseNumber" />
+		</ReadLinesFromFile>
+		<Message Text="Version: @(ReleaseNumber)"/>
+		
+		<CreateProperty Value="@(ReleaseNumber)">
+			<Output TaskParameter="Value" PropertyName="Version"/>
+		</CreateProperty>
+	</Target>
+<!--     =============================================================================================================              -->
+<!--       Target for editing AssemblyInfo file. Add versioning to it.																-->
+<!--     =============================================================================================================              -->		
+	<Target Name="AssemblyVersion" >
+		 <AssemblyInfo CodeLanguage="CS"  
+                OutputFile="$(SourceFolder)\GeneralAssemblyInfo.cs" 
+				AssemblyCompany="Renew Data Corp."
+				AssemblyCopyright="© 2011 RenewData Corp. All Rights Reserved."
+				AssemblyProduct="MyLibrary"
+				
+                AssemblyVersion="@(ReleaseNumber)" 
+                AssemblyFileVersion="@(ReleaseNumber)" />
+	</Target>
+
+<!--     =============================================================================================================              -->
+<!--       Target for update DB connection strings, Solr server location, ES server location for migrating indexes.					-->
+<!--     =============================================================================================================              -->		
+	<Target Name="UpdateConfig">
+		<ItemGroup>
+			<MigrationOptions Include="$(SourceFolder)\IndexMigrationTool\App.config">
+				<XPath>/configuration/connectionStrings/add[@name="UsersEntities"]/@connectionString</XPath>
+				<Value>metadata=res://*/Model.UsersModel.csdl|res://*/Model.UsersModel.ssdl|res://*/Model.UsersModel.msl;provider=MySql.Data.MySqlClient;provider connection string=&quot;server=$(UsersDBHost);User Id=$(UsersDBLogin);password=$(UsersDBPassword);Persist Security Info=True;Old Guids=true;Allow Zero Datetime=true;Convert Zero Datetime=true;database=$(UsersDB);Character Set=utf8;&quot;</Value>
+			</MigrationOptions>			
+			<MigrationOptions Include="$(SourceFolder)\IndexMigrationTool\App.config">
+				<XPath>/configuration/connectionStrings/add[@name="MetadataEntities"]/@connectionString</XPath>
+				<Value>metadata=res://*/Model.MetadataModel.csdl|res://*/Model.MetadataModel.ssdl|res://*/Model.MetadataModel.msl;provider=MySql.Data.MySqlClient;provider connection string=&quot;server=$(MetadataDBHost);User Id=$(MetadataDBLogin);password=$(MetadataDBPassword);Persist Security Info=True;Old Guids=true;Allow Zero Datetime=true;Convert Zero Datetime=true;database=$(MetadataDB);Character Set=utf8;&quot;</Value>
+			</MigrationOptions>					
+			<MigrationOptions Include="$(SourceFolder)\IndexMigrationTool\App.config">
+				<XPath>/configuration/connectionStrings/add[@name="SolrDocumentsConnectionString"]/@connectionString</XPath>
+				<Value>http://$(SolrServer):$(SolrPort)/solr/core1</Value>
+			</MigrationOptions>		
+			<MigrationOptions Include="$(SourceFolder)\IndexMigrationTool\App.config">
+				<XPath>/configuration/connectionStrings/add[@name="SolrMetadataConnectionString"]/@connectionString</XPath>
+				<Value>http://$(SolrServer):$(SolrPort)/solr/core2</Value>
+			</MigrationOptions>		
+			<MigrationOptions Include="$(SourceFolder)\IndexMigrationTool\App.config">
+				<XPath>/configuration/connectionStrings/add[@name="ESConnectionString"]/@connectionString</XPath>
+				<Value>$(SearchServer);$(SearchPort);files</Value>
+			</MigrationOptions>		
+		</ItemGroup>
+		
+		<XmlUpdate Prefix="%(MigrationOptions.Prefix)"
+                Namespace="%(MigrationOptions.Namespace)"
+                XPath="%(MigrationOptions.XPath)"
+                XmlFileName="%(MigrationOptions.Identity)"
+                Value="%(MigrationOptions.Value)"/>
+	</Target>
+
+   <!--
+	========================================================================================================
+													GetIp												
+							This target retrieves IP after instance restarts
+	========================================================================================================
+	-->
+	<Target Name="GetIP">
+		<StoreClientDetailsTask
+			EncryptionContainerName ="MySecretContainer"
+			AwsAccessKeyId="AKIAIHEQCKLVF7KYZFOA"
+			AwsSecretAccesskey="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" />
+    
+		<GetPublicDNSTask EncryptionContainerName ="MySecretContainer"	InstanceName="$(DeploymentServer)"  >
+			<Output TaskParameter="PublicDNS" PropertyName="DeploymentServer" />
+			<Output TaskParameter="PublicIP" PropertyName="DeploymentServerIP" />
+		</GetPublicDNSTask>
+		
+		<Message Text="Output DNS = $(DeploymentServer)" />
+		<Message Text="Output IP = $(DeploymentServerIP)" />
+	</Target>
+	
+<!--     =============================================================================================================              -->
+<!--       Target deploy Index migration tool to some PC.																			-->
+<!--     =============================================================================================================              -->			
+	<Target Name="Deploy">
+		<Exec Command="msdeploy -verb:sync -source:dirPath=$(BinDir) -skip:Directory=.svn -dest:dirPath=c:\IndexMigrationTool,computername=$(DeploymentServer),username=$(Username),password=$(Password)"/>
+		<Exec Command="msdeploy -verb:sync -source:runCommand=&quot;c:\IndexMigrationTool\MyLibrary.IndexMigration.Tool.exe&quot;,waitInterval=50000,waitAttempts=300 -dest:auto,computername=$(DeploymentServer),username=$(Username),password=$(Password)"/>
+	</Target>
+	
+</Project>
