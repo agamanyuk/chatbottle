@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0"> 
+	<PropertyGroup>
+	    <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
+		<Platform Condition=" '$(Platform)' == '' ">Any CPU</Platform>			
+		<PROGRAMFILES>$(MSBuildExtensionsPath)\..</PROGRAMFILES>
+		<VersionFile>E:\Sources\Build\build_number_desktop.txt</VersionFile>
+
+<!-- 	=============================== SERVICES DIRECTORIES =============================================================== -->
+		<Sources>..\sources\360Sources</Sources>						
+		<SolutionName>360Incentives.sln</SolutionName>		
+		<ProjectName>$(Sources)\WebApp\WebApp.csproj</ProjectName>
+		<BuildName>DeployQC(10.10.0.103)</BuildName>
+		<WebAppName>360WebApp_QC</WebAppName>	
+		<PoolName>$(WebAppName)AppPool</PoolName>	
+		<Package>c:\hudson\jobs\packages\$(BuildName)\package.zip</Package>		
+		
+<!-- 	=============================== DB update tool====================================================================== -->		
+		<DbToolSolutionName>..\db\UpdateTool\DBUpgradeWizard.sln</DbToolSolutionName>
+		<DbToolExe>..\db\UpdateTool\DBUpgradeWizard\bin\Release\DBUpgradeWizard.exe</DbToolExe>
+		<DbToolUpdateScripts>..\db\UPDATESCRIPTS</DbToolUpdateScripts>
+		<DbToolOverrideFromScripts>..\db\OtherScripts\vm37303_QC</DbToolOverrideFromScripts>	
+
+<!--	=============================== USER NAME AND PASSWORD OF ADMIN ACCOUNT ON IIS SERVER ============================== -->		
+<!--		=============================== Deployment server ============================================================== -->		
+		<DeploymentServer>10.10.0.103</DeploymentServer>
+		<Username>10.10.0.103\hadmin</Username>
+		<Password>Install4New</Password>
+
+<!-- 	=============================== Backup and Restore options for operations with IIS Site before do something ======== -->
+		<MSDeployPath>"C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe"</MSDeployPath>
+		<BackupDir>c:\Backups</BackupDir>
+		<BackupPassword>qwerty</BackupPassword>
+		
+<!--	=============================== IIS Site name, Applicaton Pool name and physical path for site folder ============== -->		
+		<IISWebSiteName>$(WebAppName)</IISWebSiteName>
+		<IISAppPoolName>$(PoolName)</IISAppPoolName>
+		<WebSiteDrive>C</WebSiteDrive>
+		<WebSiteDir>inetpub\wwwroot\$(IISWebSiteName)</WebSiteDir>
+		<SitePort>80</SitePort>
+				
+<!--	=============================== WebConfig and ServiceReferences Options ============================================ -->		
+		<ConfigFolder>..\config\default</ConfigFolder>
+		<DeploymentConfigFolder>..\config\$(BuildName)</DeploymentConfigFolder>
+		
+	</PropertyGroup>
+	
+	<Import Project = "deploy.targets"/>
+</Project> 
