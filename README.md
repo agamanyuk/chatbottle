@@ -15,3 +15,8 @@ This page will contain information about the technology that backs up the Travel
 * [Visual Studio](https://www.visualstudio.com/) great development IDE
 * [Bitbucket](http://bitbucket.com/) (hosts our code)
 * [Trello](http://trello.com/) (issue tracking)
+
+
+## Keeps us running
+* [kissfm](http://www.kissfm.ua/player/deep/) 
+* [aristocrats.fm](http://aristocrats.fm/) 
