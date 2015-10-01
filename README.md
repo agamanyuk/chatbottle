@@ -8,7 +8,7 @@ This page will contain information about the technology that backs up the Travel
 * [google maps](https://developers.google.com/maps/) (front end geocoding)
 * [openstreetmap nominatim](http://nominatim.openstreetmap.org/) (backend geocoding)
 * [CsQuery](https://github.com/jamietre/CsQuery/) (CSS selector engine)
-* [nginx](http://www.newtonsoft.com/json) (json serialization/deserialization)
+* [newton json](http://www.newtonsoft.com/json) (json serialization/deserialization)
 * [AWS](https://aws.amazon.com/)
 
 ## Development Technologies
