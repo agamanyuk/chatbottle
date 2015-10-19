@@ -11,6 +11,7 @@ This page will contain information about the technology that backs up the http:/
 * [newton json](http://www.newtonsoft.com/json) (json serialization/deserialization)
 * [AWS](https://aws.amazon.com/)
 * [Microsoft Azure](https://azure.microsoft.com/)
+* [Ubuntu](http://www.ubuntu.com/)
 
 ## Development Technologies
 * [Visual Studio](https://www.visualstudio.com/) great development IDE
